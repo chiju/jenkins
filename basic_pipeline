@@ -1,0 +1,29 @@
+node {
+
+   stage('Git Clone') { 
+       git credentialsId: 'GIT_CREDENTIALS', url: 'https://github.com/chiju/springboot.git'
+   }
+   stage('Maven Clean Build'){
+       def mavenHome = tool name:"Maven-3.6.3", type: "maven"
+       def mavenCMD = "${mavenHome}/bin/mvn"
+       sh "${mavenCMD} clean package"
+   }
+   stage('Docker Build'){
+       sh "docker build -t chiju/spring-boot ."
+   }
+   stage('Docker Push'){
+       withCredentials([string(credentialsId: 'DOCKERHUB_CREDENTIAL', variable: 'DOCKERHUB_CREDENTIAL')]) {
+        sh "docker login -u chiju -p ${DOCKERHUB_CREDENTIAL}" 
+       }
+       sh "docker push chiju/spring-boot "
+   }    
+    
+    stage('Deploy Application in K8s Cluster'){
+        kubernetesDeploy(
+            configs: 'springBootMongo.yml', 
+            kubeconfigId: 'KUBERNETES_CLUSTER_CONFIG',
+            enableConfigSubstitution: true
+        )
+    
+    }
+}
